@@ -63,7 +63,7 @@ class RandomAffineWithInverse:
 
         # Apply transformation
         grid = F.affine_grid(theta, img_tensor.size(), align_corners=False).to(
-            img_tensor.device, img_tensor.dtype
+            img_tensor.device
         )
         transformed_img = F.grid_sample(img_tensor, grid, align_corners=False)
 
@@ -73,7 +73,6 @@ class RandomAffineWithInverse:
 
         # Retrieve stored parameters
         theta = self.last_params["theta"]
-        original_dtype = theta.dtype
 
         # Augment the affine matrix to make it 3x3
         theta_augmented = torch.cat(
@@ -81,13 +80,12 @@ class RandomAffineWithInverse:
         )
 
         # Compute the inverse of the affine matrix
-        # torch.inverse doesn't support float32, so convert to float32 temporarily
-        theta_inv_augmented = torch.inverse(theta_augmented.float()).to(original_dtype)
+        theta_inv_augmented = torch.inverse(theta_augmented.float())
         theta_inv = theta_inv_augmented[:, :2, :]  # Take the 2x3 part back
 
         # Apply inverse transformation
         grid_inv = F.affine_grid(theta_inv, img_tensor.size(), align_corners=False).to(
-            img_tensor.device, img_tensor.dtype
+            img_tensor.device
         )
         untransformed_img = F.grid_sample(img_tensor, grid_inv, align_corners=False)
 
