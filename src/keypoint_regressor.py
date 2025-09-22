@@ -69,7 +69,7 @@ def find_best_indices(
 
         attention_maps = ptp_utils.run_and_find_attn(
             ldm,
-            image,
+            image.half(),
             context,
             layers=config.layers,
             noise_level=config.noise_level,

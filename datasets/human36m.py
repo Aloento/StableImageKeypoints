@@ -57,14 +57,14 @@ class TrainSet(torch.utils.data.Dataset):
         mask = Image.open(os.path.join(self.data_root, 'S{}'.format(subject_index), 'BackgroudMask',
                                        folder_names, '{}.png'.format(frame_index)))
 
-        img_array = torch.from_numpy(np.array(img)).permute(2, 0, 1).float() / 255
+        img_array = torch.from_numpy(np.array(img)).permute(2, 0, 1).half() / 255
         mask_array = torch.from_numpy(np.array(mask))
 
         # Resize the mask to [1, 512, 512, 3]
-        resized_mask_array = F.interpolate(mask_array[None, None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
+        resized_mask_array = F.interpolate(mask_array[None, None].half(), size=(512, 512), mode='bilinear', align_corners=False)[0]
 
         if img_array.shape[-1] != 512:
-            img_array = F.interpolate(img_array[None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
+            img_array = F.interpolate(img_array[None].half(), size=(512, 512), mode='bilinear', align_corners=False)[0]
 
         # Element-wise multiplication
         result_img = img_array * resized_mask_array
@@ -101,16 +101,16 @@ class TrainRegSet(torch.utils.data.Dataset):
         mask = Image.open(os.path.join(self.data_root, 'S{}'.format(subject_index), 'BackgroudMask',
                                        folder_names, '{}.png'.format(frame_index)))
         keypoints = scipy.io.loadmat(os.path.join(self.data_root, 'S{}'.format(subject_index), 'Landmarks',
-                                                  folder_names, '{}.mat'.format(frame_index)))['keypoints_2d'].astype(np.float32)
+                                                  folder_names, '{}.mat'.format(frame_index)))['keypoints_2d'].astype(np.float16)
 
-        img_array = torch.from_numpy(np.array(img)).permute(2, 0, 1).float() / 255
+        img_array = torch.from_numpy(np.array(img)).permute(2, 0, 1).half() / 255
         mask_array = torch.from_numpy(np.array(mask))
 
         # Resize the mask to [1, 512, 512, 3]
-        resized_mask_array = F.interpolate(mask_array[None, None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
+        resized_mask_array = F.interpolate(mask_array[None, None].half(), size=(512, 512), mode='bilinear', align_corners=False)[0]
         
         if img_array.shape[-1] != 512:
-            img_array = F.interpolate(img_array[None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
+            img_array = F.interpolate(img_array[None].half(), size=(512, 512), mode='bilinear', align_corners=False)[0]
 
         # Element-wise multiplication
         result_img = img_array * resized_mask_array
@@ -147,16 +147,16 @@ class TestSet(torch.utils.data.Dataset):
         mask = Image.open(os.path.join(self.data_root, 'S{}'.format(subject_index), 'BackgroudMask',
                                        folder_names, '{}.png'.format(frame_index)))
         keypoints = scipy.io.loadmat(os.path.join(self.data_root, 'S{}'.format(subject_index), 'Landmarks',
-                                                  folder_names, '{}.mat'.format(frame_index)))['keypoints_2d'].astype(np.float32)
+                                                  folder_names, '{}.mat'.format(frame_index)))['keypoints_2d'].astype(np.float16)
 
-        img_array = torch.from_numpy(np.array(img)).permute(2, 0, 1).float() / 255
+        img_array = torch.from_numpy(np.array(img)).permute(2, 0, 1).half() / 255
         mask_array = torch.from_numpy(np.array(mask))
 
         # Resize the mask to [1, 512, 512, 3]
-        resized_mask_array = F.interpolate(mask_array[None, None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
+        resized_mask_array = F.interpolate(mask_array[None, None].half(), size=(512, 512), mode='bilinear', align_corners=False)[0]
         
         if img_array.shape[-1] != 512:
-            img_array = F.interpolate(img_array[None].float(), size=(512, 512), mode='bilinear', align_corners=False)[0]
+            img_array = F.interpolate(img_array[None].half(), size=(512, 512), mode='bilinear', align_corners=False)[0]
 
         # Element-wise multiplication
         result_img = img_array * resized_mask_array

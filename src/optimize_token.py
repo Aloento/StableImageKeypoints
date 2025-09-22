@@ -37,18 +37,14 @@ def load_ldm(device, type="stabilityai/stable-diffusion-xl-base-1.0", feature_up
         scheduler=scheduler,
         torch_dtype=torch.float16,
         variant="fp16",
-        use_safetensors=True
+        use_safetensors=True,
+        addition_embed_type=None
     ).to(device)
     
     try:
         ldm.enable_xformers_memory_efficient_attention()
     except Exception as e:
         print(f"Warning: Could not enable xFormers memory efficient attention: {e}")
-    
-    try:
-        ldm.enable_model_cpu_offload()
-    except Exception as e:
-        print(f"Warning: Could not enable CPU offload: {e}")
     
     if device != "cpu":
         ldm.unet = nn.DataParallel(ldm.unet)

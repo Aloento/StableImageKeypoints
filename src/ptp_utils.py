@@ -228,7 +228,7 @@ def find_pred_noise(
 ):
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
-        image = image.permute(0, 2, 3, 1).detach().cpu().numpy()
+        image = image.permute(0, 2, 3, 1).detach().cpu().half().numpy()
 
     with torch.no_grad():
         latent = image2latent(ldm, image, device)
@@ -296,37 +296,13 @@ def image2latent(model, image, device):
             latents = image
         else:
             # print the max and min values of the image
-            image = torch.from_numpy(image).float() * 2 - 1
+            image = torch.from_numpy(image).half() * 2 - 1
             image = image.permute(0, 3, 1, 2).to(device)
             if isinstance(model.vae, torch.nn.DataParallel):
                 latents = model.vae.module.encode(image)["latent_dist"].mean
             else:
                 latents = model.vae.encode(image)["latent_dist"].mean
             latents = latents * 0.18215
-    return latents
-
-
-def latent2image(vae, latents):
-    latents = 1 / 0.18215 * latents
-    image = vae.decode(latents)["sample"]
-    image = (image / 2 + 0.5).clamp(0, 1)
-    image = image.cpu().permute(0, 2, 3, 1).numpy()
-    image = (image * 255).astype(np.uint8)
-    return image
-
-
-def latent_step(model, controller, latents, context, t, guidance_scale, low_resource=True):
-    if low_resource:
-        # noise_pred_uncond = model.unet(latents, t, encoder_hidden_states=context[0])["sample"]
-        noise_prediction_text = model.unet(latents, t, encoder_hidden_states=context[1])["sample"]
-    else:
-        latents_input = torch.cat([latents] * 2)
-        noise_pred = model.unet(latents_input, t, encoder_hidden_states=context)["sample"]
-        noise_pred_uncond, noise_prediction_text = noise_pred.chunk(2)
-    # noise_pred = noise_pred_uncond + guidance_scale * (noise_prediction_text - noise_pred_uncond)
-    noise_pred = noise_prediction_text
-    latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
-    latents = controller.step_callback(latents)
     return latents
 
 
@@ -493,7 +469,7 @@ def register_attention_control(model, controller, feature_upsample_res=256):
         controller = DummyController()
 
     # 获取 UNet 的所有注意力处理器
-    attn_procs = model.unet.attn_processors
+    attn_procs = model.attn_processors
     new_attn_procs = {}
     
     cross_att_count = 0
@@ -519,7 +495,7 @@ def register_attention_control(model, controller, feature_upsample_res=256):
             new_attn_procs[name] = processor
     
     # 设置新的注意力处理器
-    model.unet.set_attn_processor(new_attn_procs)
+    model.set_attn_processor(new_attn_procs)
     
     # 设置控制器的层数
     controller.num_att_layers = cross_att_count

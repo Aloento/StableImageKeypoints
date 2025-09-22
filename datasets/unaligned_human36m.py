@@ -125,7 +125,7 @@ class TrainSet(torch.utils.data.Dataset):
         
         img_size = img.size
 
-        img_array = torch.from_numpy(np.array(img)).permute(2, 0, 1).float() / 255
+        img_array = torch.from_numpy(np.array(img)).permute(2, 0, 1).half() / 255
 
         annot_file = h5py.File(os.path.join(self.data_root, 'S{}'.format(subject_index), folder_names, "annot.h5"), "r")
         correct_cam = np.array(annot_file['camera'])==int(camera)
@@ -170,7 +170,7 @@ class TrainRegSet(torch.utils.data.Dataset):
         
         img_size = img.size
 
-        img_array = torch.from_numpy(np.array(img)).permute(2, 0, 1).float() / 255
+        img_array = torch.from_numpy(np.array(img)).permute(2, 0, 1).half() / 255
 
         annot_file = h5py.File(os.path.join(self.data_root, 'S{}'.format(subject_index), folder_names, "annot.h5"), "r")
         correct_cam = np.array(annot_file['camera'])==int(camera)
@@ -215,7 +215,7 @@ class TestSet(torch.utils.data.Dataset):
         
         img_size = img.size
 
-        img_array = torch.from_numpy(np.array(img)).permute(2, 0, 1).float() / 255
+        img_array = torch.from_numpy(np.array(img)).permute(2, 0, 1).half() / 255
 
         annot_file = h5py.File(os.path.join(self.data_root, 'S{}'.format(subject_index), folder_names, "annot.h5"), "r")
         correct_cam = np.array(annot_file['camera'])==int(camera)

@@ -348,7 +348,7 @@ class CUBDataset(Dataset):
         kp_norm, sfm_pose = self.normalize_kp(kp, sfm_pose, img_h, img_w)
 
         img = Image.fromarray(np.asarray(img, np.uint8))
-        mask = np.asarray(mask, np.float32)
+        mask = np.asarray(mask, np.float16)
         return img, kp_norm, mask, sfm_pose, img_path
 
     def normalize_kp(self, kp, sfm_pose, img_h, img_w):

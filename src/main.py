@@ -18,6 +18,7 @@ from src.keypoint_regressor import (
 from src.eval import evaluate
 from src.visualize import visualize_attn_maps
 
+torch.set_default_dtype(torch.float16)
 
 print("正在加载配置...")
 config = setup_config()
@@ -119,7 +120,7 @@ else:
             source_kpts.cpu().numpy().reshape(source_kpts.shape[0], source_kpts.shape[1]*2).astype(np.float64),
             target_kpts.cpu().numpy().reshape(target_kpts.shape[0], target_kpts.shape[1]*2).astype(np.float64),
         )
-    regressor = torch.tensor(regressor).to(torch.float32)
+    regressor = torch.tensor(regressor).to(torch.float16)
     torch.save(regressor, os.path.join(config.save_folder, "regressor.pt"))
 
     if config.visualize:

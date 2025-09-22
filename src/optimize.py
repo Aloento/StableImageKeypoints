@@ -90,8 +90,8 @@ def create_gaussian_kernel(size: int, sigma: float):
     assert size % 2 == 1, "Size must be odd"
     center = size // 2
 
-    x = torch.arange(0, size, dtype=torch.float32)
-    y = torch.arange(0, size, dtype=torch.float32)
+    x = torch.arange(0, size, dtype=torch.float16)
+    y = torch.arange(0, size, dtype=torch.float16)
     x, y = torch.meshgrid(x - center, y - center)
 
     kernel = torch.exp(-(x**2 + y**2) / (2 * sigma**2))
@@ -233,7 +233,7 @@ def optimize_embedding(
 
         attn_maps = ptp_utils.run_and_find_attn(
             ldm,
-            image,
+            image.half(),
             context,
             layers=config.layers,
             noise_level=config.noise_level,
@@ -243,13 +243,11 @@ def optimize_embedding(
             controllers=controllers,
         )
         
-        # import ipdb; ipdb.set_trace()
-
         transformed_img = invertible_transform(image)
 
         attention_maps_transformed = ptp_utils.run_and_find_attn(
             ldm,
-            transformed_img,
+            transformed_img.half(),
             context,
             layers=config.layers,
             noise_level=config.noise_level,
