@@ -38,6 +38,7 @@ def load_ldm(device, type="stabilityai/stable-diffusion-xl-base-1.0", feature_up
         dtype=torch.float16,
         variant="fp16",
         use_safetensors=True,
+        added_cond_kwargs={}
     ).to(device)
     
     try:
