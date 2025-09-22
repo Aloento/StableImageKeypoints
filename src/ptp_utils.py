@@ -228,7 +228,7 @@ def find_pred_noise(
 ):
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
-        image = image.permute(0, 2, 3, 1).detach().cpu().half().numpy()
+        image = image.permute(0, 2, 3, 1).detach().cpu().numpy()
 
     with torch.no_grad():
         latent = image2latent(ldm, image, device)
@@ -308,7 +308,7 @@ def image2latent(model, image, device):
             latents = image
         else:
             # print the max and min values of the image
-            image = torch.from_numpy(image).half() * 2 - 1
+            image = torch.from_numpy(image) * 2 - 1
             image = image.permute(0, 3, 1, 2).to(device)
             if isinstance(model.vae, torch.nn.DataParallel):
                 latents = model.vae.module.encode(image)["latent_dist"].mean

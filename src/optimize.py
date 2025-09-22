@@ -1,4 +1,5 @@
 # load the dataset
+import math
 import torch
 from tqdm import tqdm
 from src import ptp_utils
@@ -46,9 +47,31 @@ def collect_maps(
         
         data = data.to(device)
 
-        data = data.reshape(
-            data.shape[0], int(data.shape[1] ** 0.5), int(data.shape[1] ** 0.5), data.shape[2]
-        )
+        # For cross-attention maps, the shape is typically [batch, num_heads, seq_len, text_len]
+        # or [batch, seq_len, text_len] after averaging heads
+        # We need to handle this properly
+        
+        if len(data.shape) == 4:
+            # Shape: [batch, num_heads, seq_len, text_len] or [batch, time_steps, num_heads, text_len]
+            # Average across the second dimension (heads or time steps)
+            data = data.mean(dim=1)  # Now [batch, seq_len, text_len]
+        
+        # Now data should be [batch, seq_len, text_len]
+        batch_size, seq_len, text_len = data.shape
+        
+        # For diffusion models, seq_len represents the spatial tokens (height * width)
+        # We need to find the spatial dimensions
+        spatial_size = int(seq_len ** 0.5)
+        
+        if spatial_size * spatial_size != seq_len:
+            # Use the closest perfect square
+            spatial_size = int(math.sqrt(seq_len))
+            actual_seq_len = spatial_size * spatial_size
+            data = data[:, :actual_seq_len, :]
+            seq_len = actual_seq_len
+
+        # Reshape to spatial dimensions
+        data = data.reshape(batch_size, spatial_size, spatial_size, text_len)
         
         # import ipdb; ipdb.set_trace()
 
@@ -90,8 +113,8 @@ def create_gaussian_kernel(size: int, sigma: float):
     assert size % 2 == 1, "Size must be odd"
     center = size // 2
 
-    x = torch.arange(0, size, dtype=torch.float16)
-    y = torch.arange(0, size, dtype=torch.float16)
+    x = torch.arange(0, size, dtype=torch.float32)
+    y = torch.arange(0, size, dtype=torch.float32)
     x, y = torch.meshgrid(x - center, y - center)
 
     kernel = torch.exp(-(x**2 + y**2) / (2 * sigma**2))
@@ -233,7 +256,7 @@ def optimize_embedding(
 
         attn_maps = ptp_utils.run_and_find_attn(
             ldm,
-            image.half(),
+            image,
             context,
             layers=config.layers,
             noise_level=config.noise_level,
@@ -247,7 +270,7 @@ def optimize_embedding(
 
         attention_maps_transformed = ptp_utils.run_and_find_attn(
             ldm,
-            transformed_img.half(),
+            transformed_img,
             context,
             layers=config.layers,
             noise_level=config.noise_level,

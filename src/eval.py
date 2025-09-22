@@ -87,7 +87,7 @@ def mask_radius(map, max_coords, radius):
 
     # Mask out pixels within the specified radius
     mask = squared_dist > radius**2
-    masked_map = map * mask.half()
+    masked_map = map * mask.float()
 
     return masked_map
 
@@ -107,8 +107,8 @@ def pixel_from_weighted_avg(heatmaps, distance=5):
         x_max, y_max = max_pixel_indices[:, 0].long(), max_pixel_indices[:, 1].long()
         
         # Create a meshgrid
-        x = torch.arange(0, m).half().view(1, m, 1).to(heatmaps.device).repeat(batch_size, 1, 1)
-        y = torch.arange(0, n).half().view(1, 1, n).to(heatmaps.device).repeat(batch_size, 1, 1)
+        x = torch.arange(0, m).float().view(1, m, 1).to(heatmaps.device).repeat(batch_size, 1, 1)
+        y = torch.arange(0, n).float().view(1, 1, n).to(heatmaps.device).repeat(batch_size, 1, 1)
         
         # Calculate the distance to the max_pixel
         distance_to_max = torch.sqrt((x - x_max.view(batch_size, 1, 1)) ** 2 + 
@@ -126,8 +126,8 @@ def pixel_from_weighted_avg(heatmaps, distance=5):
     )  # Adding a small constant to avoid division by zero
 
     # Create meshgrid to represent the coordinates
-    x = torch.arange(0, m).half().view(1, m, 1).to(heatmaps.device)
-    y = torch.arange(0, n).half().view(1, 1, n).to(heatmaps.device)
+    x = torch.arange(0, m).float().view(1, m, 1).to(heatmaps.device)
+    y = torch.arange(0, n).float().view(1, 1, n).to(heatmaps.device)
 
     # Compute the weighted sum for x and y
     x_sum = torch.sum(x * normalized_heatmaps, dim=[1, 2])
@@ -158,7 +158,7 @@ def run_image_with_context_augmented(
 ):
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
-        image = image.permute(1, 2, 0).detach().cpu().half().numpy()
+        image = image.permute(1, 2, 0).detach().cpu().float().numpy()
 
     num_samples = torch.zeros(len(indices), upscale_size, upscale_size).to(device)
     sum_samples = torch.zeros(len(indices), upscale_size, upscale_size).to(device)
@@ -246,12 +246,12 @@ def run_image_with_context_augmented(
                     j, 0, None, None
                 ].to(device)
                 kernel = (
-                    torch.tensor([[1, 1, 1], [1, 1, 1], [1, 1, 1]], dtype=torch.float16)
+                    torch.tensor([[1, 1, 1], [1, 1, 1], [1, 1, 1]], dtype=torch.float32)
                     .reshape(1, 1, 3, 3)
                     .to(device)
                 )
                 mask = F.conv2d(mask, kernel, padding=1)
-                mask = (mask == 9).half()
+                mask = (mask == 9).float()
 
                 diff *= mask[0, 0]
                 diff = diff / diff.max()
@@ -367,7 +367,7 @@ def evaluate(
 
         attention_maps = run_image_with_context_augmented(
             ldm,
-            img.half(),
+            img.float(),
             context,
             indices.cpu(),
             device=config.device,
@@ -420,7 +420,7 @@ def evaluate(
             l2_mean /= visible.sum()
             
         if config.evaluation_method == "pck":
-            l2_mean = (l2 < 6).half().mean()
+            l2_mean = (l2 < 6).float().mean()
             
         if config.evaluation_method == "orientation_invariant":
             l2_mean = l2.mean()

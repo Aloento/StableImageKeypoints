@@ -68,7 +68,7 @@ class TrainRegSet(torch.utils.data.Dataset):
         img = Image.open(os.path.join(self.data_root, 'eval_images', 'taichi-256', 'train', image_file))
         img = img.resize((self.image_size, self.image_size), resample=Image.BILINEAR)
         img = np.asarray(img) / 255
-        img= torch.tensor(img).permute(2, 0, 1).half()
+        img= torch.tensor(img).permute(2, 0, 1).float()
         pose = self.pose_file.value[idx]/256
         pose = torch.tensor(pose)
         # swap x and y
@@ -99,7 +99,7 @@ class TestSet(torch.utils.data.Dataset):
         img = Image.open(os.path.join(self.data_root, 'eval_images', 'taichi-256', 'test', image_file))
         img = img.resize((self.image_size, self.image_size), resample=Image.BILINEAR)
         img = np.asarray(img) / 255
-        img= torch.tensor(img).permute(2, 0, 1).half()
+        img= torch.tensor(img).permute(2, 0, 1).float()
         pose = self.pose_file.value[idx]/256
         pose = torch.tensor(pose)
         # swap x and y
