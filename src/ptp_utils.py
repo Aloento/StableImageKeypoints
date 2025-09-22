@@ -241,9 +241,21 @@ def find_pred_noise(
     
     # import ipdb; ipdb.set_trace()
 
+    # 创建虚拟的 text_embeds 和 time_ids
+    batch_size = noisy_image.shape[0]
+    
+    # 创建虚拟的 add_text_embeds (pooled embeddings)
+    add_text_embeds = torch.zeros(batch_size, 1280, device=device, dtype=noisy_image.dtype)
+    
+    # 创建虚拟的 add_time_ids (original_size, crops_coords_top_left, target_size)
+    add_time_ids = torch.zeros(batch_size, 6, device=device, dtype=noisy_image.dtype)
+    
+    added_cond_kwargs = {"text_embeds": add_text_embeds, "time_ids": add_time_ids}
+
     pred_noise = ldm.unet(noisy_image, 
                           ldm.scheduler.timesteps[noise_level].repeat(noisy_image.shape[0]), 
-                          encoder_hidden_states=context.repeat(noisy_image.shape[0], 1, 1))["sample"]
+                          encoder_hidden_states=context.repeat(noisy_image.shape[0], 1, 1),
+                          added_cond_kwargs=added_cond_kwargs)["sample"]
     
     return noise, pred_noise
     

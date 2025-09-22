@@ -35,10 +35,9 @@ def load_ldm(device, type="stabilityai/stable-diffusion-xl-base-1.0", feature_up
         type, 
         token=my_token, 
         scheduler=scheduler,
-        dtype=torch.float16,
+        torch_dtype=torch.float16,
         variant="fp16",
-        use_safetensors=True,
-        added_cond_kwargs={}
+        use_safetensors=True
     ).to(device)
     
     try:
