@@ -39,8 +39,34 @@ class AttentionControl(abc.ABC):
         raise NotImplementedError
 
     def __call__(self, dict, is_cross: bool, place_in_unet: str):
+        attn = dict['attn']
         
-        dict = self.forward(dict, is_cross, place_in_unet)
+        # 检查是否需要应用条件/无条件分离（CFG）
+        if hasattr(self, 'cur_att_layer') and hasattr(self, 'num_uncond_att_layers'):
+            if self.cur_att_layer >= self.num_uncond_att_layers:
+                h = attn.shape[0]
+                if h > 1 and h % 2 == 0:  # 确保是偶数批次（条件+无条件）
+                    # 只对条件生成部分（后半部分）应用注意力控制
+                    dict_to_process = {'attn': attn[h // 2:]}
+                    dict_processed = self.forward(dict_to_process, is_cross, place_in_unet)
+                    # 重新组合条件和无条件部分
+                    dict['attn'] = torch.cat([attn[:h // 2], dict_processed['attn']], dim=0)
+                else:
+                    # 单批次或奇数批次，直接处理
+                    dict = self.forward(dict, is_cross, place_in_unet)
+            else:
+                dict = self.forward(dict, is_cross, place_in_unet)
+            
+            # 更新层计数器和步骤计数器
+            self.cur_att_layer += 1
+            if hasattr(self, 'num_att_layers') and self.cur_att_layer == self.num_att_layers + self.num_uncond_att_layers:
+                self.cur_att_layer = 0
+                if hasattr(self, 'cur_step'):
+                    self.cur_step += 1
+                self.between_steps()
+        else:
+            # 简单模式：直接调用forward
+            dict = self.forward(dict, is_cross, place_in_unet)
         
         return dict['attn']
 
@@ -62,9 +88,8 @@ class AttentionStore(AttentionControl):
         }
 
     def forward(self, dict, is_cross: bool, place_in_unet: str):
-        key = f"{place_in_unet}_{'cross' if is_cross else 'self'}"
-        # if attn.shape[1] <= 32**2:  # avoid memory overhead
-        self.step_store["attn"].append(dict['attn']) 
+        if dict['attn'].shape[1] <= 32 ** 2:
+            self.step_store["attn"].append(dict['attn']) 
         
         return dict
 
@@ -311,7 +336,6 @@ def register_attention_control(model, controller, feature_upsample_res=256):
             v = self.head_to_batch_dim(v)
 
             sim = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
-            # sim = torch.matmul(q, k.permute(0, 2, 1)) * self.scale
 
             if attention_mask is not None:
                 attention_mask = attention_mask.reshape(batch_size, -1)
@@ -328,7 +352,7 @@ def register_attention_control(model, controller, feature_upsample_res=256):
             if (
                 is_cross
                 and sequence_length <= 32**2
-                and len(controller.step_store["attn"]) < 4
+                and len(controller.step_store["attn"]) < 3
             ):
                 x_reshaped = hidden_states.reshape(
                     batch_size,
@@ -394,5 +418,5 @@ def register_attention_control(model, controller, feature_upsample_res=256):
     assert cross_att_count != 0, f"No cross-attention layers found in the model. Please check the model structure. Found {cross_att_count} cross-attention layers."
 
 
-def init_random_noise(device, num_words=77):
-    return torch.randn(1, num_words, 768).to(device)
+def init_random_noise(device, num_words=77, embedding_dim=2048):
+    return torch.randn(1, num_words, embedding_dim).to(device)

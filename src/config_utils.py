@@ -15,7 +15,7 @@ import torch
 class Config:
     """主配置类，包含所有配置项"""
     # Model configuration
-    model_type: str = "sd-legacy/stable-diffusion-v1-5"
+    model_type: str = "stabilityai/stable-diffusion-xl-base-1.0"
     my_token: Optional[str] = None
     
     # Dataset configuration
@@ -25,14 +25,14 @@ class Config:
     validation: bool = False
     
     # Training configuration
-    device: str = "cuda:0"
+    device: str = "cuda"
     lr: float = 0.005
     num_steps: int = 500
     num_tokens: int = 500
     batch_size: int = 4
     
     # Features configuration
-    feature_upsample_res: int = 128
+    feature_upsample_res: int = 512
     layers: List[int] = None
     noise_level: int = -1
     
@@ -72,12 +72,12 @@ class Config:
     
     def __post_init__(self):
         if self.layers is None:
-            self.layers = [0, 1, 2, 3]
+            self.layers = [0, 1, 2]
         if self.augment_scale is None:
             self.augment_scale = [0.8, 1.0]
         if self.augment_translate is None:
             self.augment_translate = [0.25, 0.25]
-    
+
     @classmethod
     def from_dict_config(cls, dict_config: DictConfig) -> 'Config':
         """从OmegaConf DictConfig创建Config实例"""
@@ -191,6 +191,9 @@ def validate_config(config: Config) -> None:
     if config.num_steps <= 0:
         raise ValueError("训练步数必须大于0")
     
+    if not config.model_type.startswith("stabilityai/stable-diffusion-xl"):
+        raise ValueError(f"此项目只支持SDXL模型，当前模型: {config.model_type}")
+    
     # 验证数据集名称
     valid_datasets = [
         "celeba_aligned", "celeba_wild", "cub_aligned", "cub_001", 
@@ -218,6 +221,14 @@ def validate_config(config: Config) -> None:
     # 验证设备可用性
     if config.device.startswith("cuda") and not torch.cuda.is_available():
         raise ValueError(f"CUDA设备不可用，但配置要求使用: {config.device}")
+    
+    # SDXL特定验证
+    if len(config.layers) > 3:
+        raise ValueError(f"SDXL只有3个分辨率层，配置的layers包含{len(config.layers)}层")
+    
+    # 验证feature_upsample_res适合SDXL
+    if config.feature_upsample_res < 256:
+        print(f"警告: SDXL推荐feature_upsample_res>=256，当前设置为{config.feature_upsample_res}")
 
 
 def create_config_parser() -> argparse.ArgumentParser:
