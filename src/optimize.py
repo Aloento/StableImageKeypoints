@@ -197,7 +197,7 @@ def optimize_embedding(
     # every iteration return image, pixel_loc
 
     if context is None:
-        context = ptp_utils.init_random_noise(config.device, num_words=config.num_tokens)
+        context = ptp_utils.init_random_noise(config.device, num_words=config.num_tokens, embedding_dim=2048)
 
     context.requires_grad = True
 

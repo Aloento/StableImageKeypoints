@@ -13,12 +13,12 @@
 # limitations under the License.
 
 import torch
-from diffusers import StableDiffusionPipeline, DDIMScheduler
+from diffusers import DiffusionPipeline, DDIMScheduler
 from src import ptp_utils
 import torch.nn as nn
 
 
-def load_ldm(device, type="sd-legacy/stable-diffusion-v1-5", feature_upsample_res=256, my_token=None):
+def load_ldm(device, type="stabilityai/stable-diffusion-xl-base-1.0", feature_upsample_res=256, my_token=None):
     scheduler = DDIMScheduler(
         beta_start=0.00085,
         beta_end=0.012,
@@ -28,12 +28,27 @@ def load_ldm(device, type="sd-legacy/stable-diffusion-v1-5", feature_upsample_re
         steps_offset=1
     )
 
-    NUM_DDIM_STEPS = 50
+    NUM_DDIM_STEPS = 30
     scheduler.set_timesteps(NUM_DDIM_STEPS)
 
-    ldm = StableDiffusionPipeline.from_pretrained(
-        type, token=my_token, scheduler=scheduler
+    ldm = DiffusionPipeline.from_pretrained(
+        type, 
+        token=my_token, 
+        scheduler=scheduler,
+        torch_dtype=torch.float16,
+        variant="fp16",
+        use_safetensors=True
     ).to(device)
+    
+    try:
+        ldm.enable_xformers_memory_efficient_attention()
+    except Exception as e:
+        print(f"Warning: Could not enable xFormers memory efficient attention: {e}")
+    
+    try:
+        ldm.enable_model_cpu_offload()
+    except Exception as e:
+        print(f"Warning: Could not enable CPU offload: {e}")
     
     if device != "cpu":
         ldm.unet = nn.DataParallel(ldm.unet)
@@ -68,6 +83,8 @@ def load_ldm(device, type="sd-legacy/stable-diffusion-v1-5", feature_upsample_re
     for param in ldm.vae.parameters():
         param.requires_grad = False
     for param in ldm.text_encoder.parameters():
+        param.requires_grad = False
+    for param in ldm.text_encoder_2.parameters():
         param.requires_grad = False
     for param in ldm.unet.parameters():
         param.requires_grad = False
