@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import torch
-from diffusers import DiffusionPipeline, DDIMScheduler
+from diffusers import StableDiffusionXLPipeline, DDIMScheduler
 from src import ptp_utils
 import torch.nn as nn
 
@@ -31,14 +31,13 @@ def load_ldm(device, type="stabilityai/stable-diffusion-xl-base-1.0", feature_up
     NUM_DDIM_STEPS = 30
     scheduler.set_timesteps(NUM_DDIM_STEPS)
 
-    ldm = DiffusionPipeline.from_pretrained(
+    ldm = StableDiffusionXLPipeline.from_pretrained(
         type, 
         token=my_token, 
         scheduler=scheduler,
-        torch_dtype=torch.float16,
+        dtype=torch.float16,
         variant="fp16",
         use_safetensors=True,
-        addition_embed_type=None
     ).to(device)
     
     try:
