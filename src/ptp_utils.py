@@ -21,7 +21,8 @@ from src.eval import find_max_pixel, find_k_max_pixels
 from src import optimize_token
 from PIL import Image
 from src.optimize import collect_maps
-
+from diffusers.models.attention_processor import AttnProcessor2_0
+    
 
 class AttentionControl(abc.ABC):
     def step_callback(self, x_t):
@@ -93,13 +94,28 @@ class AttentionStore(AttentionControl):
         
         return dict
 
+    def between_steps(self):
+        if len(self.attention_store) == 0:
+            self.attention_store = self.step_store
+        else:
+            for key in self.attention_store:
+                for i in range(len(self.attention_store[key])):
+                    self.attention_store[key][i] += self.step_store[key][i]
+        self.step_store = self.get_empty_store()
+
+    def get_average_attention(self):
+        average_attention = {key: [item / self.cur_step for item in self.attention_store[key]] for key in self.attention_store}
+        return average_attention
+
     def reset(self):
         super(AttentionStore, self).reset()
         self.step_store = self.get_empty_store()
+        self.attention_store = {}
 
     def __init__(self):
         super(AttentionStore, self).__init__()
         self.step_store = self.get_empty_store()
+        self.attention_store = {}
 
 
 def find_top_k_gaussian(attention_maps, top_k, sigma = 3, epsilon = 1e-5, num_subjects = 1):
@@ -315,76 +331,155 @@ def latent_step(model, controller, latents, context, t, guidance_scale, low_reso
 
 
 def register_attention_control(model, controller, feature_upsample_res=256):
-    def ca_forward(self, place_in_unet):
-        to_out = self.to_out
-        if type(to_out) is torch.nn.modules.container.ModuleList:
-            to_out = self.to_out[0]
-        else:
-            to_out = self.to_out
-
-        def forward(hidden_states, encoder_hidden_states=None, attention_mask=None, **kwargs):
-            batch_size, sequence_length, dim = hidden_states.shape
-            h = self.heads
-            q = self.to_q(hidden_states)
-            is_cross = encoder_hidden_states is not None
-
-            encoder_hidden_states = encoder_hidden_states if is_cross else hidden_states
-            k = self.to_k(encoder_hidden_states)
-            v = self.to_v(encoder_hidden_states)
-            q = self.head_to_batch_dim(q)
-            k = self.head_to_batch_dim(k)
-            v = self.head_to_batch_dim(v)
-
-            sim = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
-
-            if attention_mask is not None:
-                attention_mask = attention_mask.reshape(batch_size, -1)
-                max_neg_value = -torch.finfo(sim.dtype).max
-                attention_mask = attention_mask[:, None, :].repeat(h, 1, 1)
-                sim = sim.masked_fill(~attention_mask, max_neg_value)
-
-            # attention, what we cannot get enough of
-            attn = torch.nn.Softmax(dim=-1)(sim)
-            attn = attn.clone()
+    class ControlledAttnProcessor2_0(AttnProcessor2_0):
+        def __init__(self, controller, place_in_unet, feature_upsample_res=256):
+            super().__init__()
+            self.controller = controller
+            self.place_in_unet = place_in_unet
+            self.feature_upsample_res = feature_upsample_res
             
-            out = torch.matmul(attn, v)
+        def __call__(
+            self,
+            attn,
+            hidden_states,
+            encoder_hidden_states=None,
+            attention_mask=None,
+            temb=None,
+            *args,
+            **kwargs,
+        ):
+            residual = hidden_states
 
+            if attn.spatial_norm is not None:
+                hidden_states = attn.spatial_norm(hidden_states, temb)
+
+            input_ndim = hidden_states.ndim
+
+            if input_ndim == 4:
+                batch_size, channel, height, width = hidden_states.shape
+                hidden_states = hidden_states.view(batch_size, channel, height * width).transpose(1, 2)
+
+            batch_size, sequence_length, _ = (
+                hidden_states.shape if encoder_hidden_states is None else encoder_hidden_states.shape
+            )
+            
+            if attention_mask is not None:
+                attention_mask = attn.prepare_attention_mask(attention_mask, sequence_length, batch_size)
+                attention_mask = attention_mask.view(batch_size, attn.heads, -1, attention_mask.shape[-1])
+
+            if attn.group_norm is not None:
+                hidden_states = attn.group_norm(hidden_states.transpose(1, 2)).transpose(1, 2)
+
+            query = attn.to_q(hidden_states)
+
+            is_cross = encoder_hidden_states is not None
+            if encoder_hidden_states is None:
+                encoder_hidden_states = hidden_states
+            elif attn.norm_cross:
+                encoder_hidden_states = attn.norm_encoder_hidden_states(encoder_hidden_states)
+
+            key = attn.to_k(encoder_hidden_states)
+            value = attn.to_v(encoder_hidden_states)
+
+            inner_dim = key.shape[-1]
+            head_dim = inner_dim // attn.heads
+
+            query = query.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
+            key = key.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
+            value = value.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
+
+            # 计算注意力权重而不是直接使用 scaled_dot_product_attention
+            # 这样我们可以访问和控制注意力权重
+            attention_scores = torch.matmul(query, key.transpose(-2, -1)) * attn.scale
+            
+            if attention_mask is not None:
+                attention_scores = attention_scores + attention_mask
+
+            attention_probs = F.softmax(attention_scores, dim=-1)
+            
+            # 应用注意力控制
             if (
-                is_cross
-                and sequence_length <= 32**2
-                and len(controller.step_store["attn"]) < 3
+                is_cross and 
+                sequence_length <= 32**2 and 
+                hasattr(self.controller, 'step_store') and
+                len(self.controller.step_store["attn"]) < 3
             ):
-                x_reshaped = hidden_states.reshape(
-                    batch_size,
-                    int(sequence_length**0.5),
-                    int(sequence_length**0.5),
-                    dim,
-                ).permute(0, 3, 1, 2)
-                # upsample to feature_upsample_res**2
-                x_reshaped = (
-                    F.interpolate(
-                        x_reshaped,
-                        size=(feature_upsample_res, feature_upsample_res),
-                        mode="bicubic",
-                        align_corners=False,
+                # 检查是否为完全平方数（即来自 2D 特征图）
+                sqrt_seq_len = int(sequence_length**0.5)
+                if sqrt_seq_len * sqrt_seq_len == sequence_length:
+                    # 对于特征上采样处理
+                    x_reshaped = hidden_states.reshape(
+                        batch_size,
+                        sqrt_seq_len,
+                        sqrt_seq_len,
+                        hidden_states.shape[-1],
+                    ).permute(0, 3, 1, 2)
+                    
+                    # 上采样到指定分辨率
+                    x_reshaped = (
+                        F.interpolate(
+                            x_reshaped,
+                            size=(self.feature_upsample_res, self.feature_upsample_res),
+                            mode="bicubic",
+                            align_corners=False,
+                        )
+                        .permute(0, 2, 3, 1)
+                        .reshape(batch_size, -1, hidden_states.shape[-1])
                     )
-                    .permute(0, 2, 3, 1)
-                    .reshape(batch_size, -1, dim)
-                )
 
-                q = self.to_q(x_reshaped)
-                q = self.head_to_batch_dim(q)
+                    # 重新计算上采样后的查询
+                    q_upsampled = attn.to_q(x_reshaped)
+                    q_upsampled = q_upsampled.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
 
-                sim = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
-                attn = torch.nn.Softmax(dim=-1)(sim)
-                attn = attn.clone()
+                    # 重新计算注意力
+                    attn_scores_upsampled = torch.matmul(q_upsampled, key.transpose(-2, -1)) * attn.scale
+                    attn_probs_upsampled = F.softmax(attn_scores_upsampled, dim=-1)
+                    
+                    # 应用控制器
+                    controlled_attn = self.controller(
+                        {"attn": attn_probs_upsampled}, 
+                        is_cross, 
+                        self.place_in_unet
+                    )
+                    
+                    # 如果控制器返回的是字典，提取注意力矩阵
+                    if isinstance(controlled_attn, dict):
+                        attention_probs = controlled_attn["attn"]
+                    else:
+                        attention_probs = controlled_attn
+                else:
+                    # 对于非完全平方数的序列长度，直接应用控制器而不进行上采样
+                    controlled_attn = self.controller(
+                        {"attn": attention_probs}, 
+                        is_cross, 
+                        self.place_in_unet
+                    )
+                    
+                    if isinstance(controlled_attn, dict):
+                        attention_probs = controlled_attn["attn"]
+                    else:
+                        attention_probs = controlled_attn
 
-                attn = controller({"attn": attn}, is_cross, place_in_unet)
+            # 应用注意力到 value
+            hidden_states = torch.matmul(attention_probs, value)
+            
+            hidden_states = hidden_states.transpose(1, 2).reshape(batch_size, -1, attn.heads * head_dim)
+            hidden_states = hidden_states.to(query.dtype)
 
-            out = self.batch_to_head_dim(out)
-            return to_out(out)
+            # 线性投影
+            hidden_states = attn.to_out[0](hidden_states)
+            # dropout
+            hidden_states = attn.to_out[1](hidden_states)
 
-        return forward
+            if input_ndim == 4:
+                hidden_states = hidden_states.transpose(-1, -2).reshape(batch_size, channel, height, width)
+
+            if attn.residual_connection:
+                hidden_states = hidden_states + residual
+
+            hidden_states = hidden_states / attn.rescale_output_factor
+
+            return hidden_states
 
     class DummyController:
         def __call__(self, *args):
@@ -392,27 +487,41 @@ def register_attention_control(model, controller, feature_upsample_res=256):
 
         def __init__(self):
             self.num_att_layers = 0
+            self.step_store = {"attn": []}
 
     if controller is None:
         controller = DummyController()
 
-    def register_recr(net_, count, place_in_unet):
-        if net_.__class__.__name__ == "Attention":
-            is_cross_attention = getattr(net_, 'is_cross_attention', False)
-            if is_cross_attention:
-                net_.forward = ca_forward(net_, place_in_unet)
-                return count + 1
-        elif hasattr(net_, "children"):
-            for net__ in net_.children():
-                count = register_recr(net__, count, place_in_unet)
-        return count
-
+    # 获取 UNet 的所有注意力处理器
+    attn_procs = model.unet.attn_processors
+    new_attn_procs = {}
+    
     cross_att_count = 0
-    sub_nets = model.named_children()
-    for net in sub_nets:
-        if "up" in net[0]:
-            cross_att_count += register_recr(net[1], 0, "up")
-
+    
+    for name, processor in attn_procs.items():
+        # 确定在 UNet 中的位置
+        if "down_blocks" in name:
+            place_in_unet = "down"
+        elif "mid_block" in name:
+            place_in_unet = "mid"  
+        elif "up_blocks" in name:
+            place_in_unet = "up"
+        else:
+            place_in_unet = "unknown"
+        
+        # 只替换交叉注意力处理器 (attn2)
+        if "attn2" in name:  # 交叉注意力
+            new_attn_procs[name] = ControlledAttnProcessor2_0(
+                controller, place_in_unet, feature_upsample_res
+            )
+            cross_att_count += 1
+        else:  # 自注意力保持原样
+            new_attn_procs[name] = processor
+    
+    # 设置新的注意力处理器
+    model.unet.set_attn_processor(new_attn_procs)
+    
+    # 设置控制器的层数
     controller.num_att_layers = cross_att_count
     
     assert cross_att_count != 0, f"No cross-attention layers found in the model. Please check the model structure. Found {cross_att_count} cross-attention layers."
