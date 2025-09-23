@@ -76,12 +76,10 @@ class AttentionStore(AttentionControl):
     def reset(self):
         super(AttentionStore, self).reset()
         self.step_store = self.get_empty_store()
-        self.attention_store = {}
 
     def __init__(self):
         super(AttentionStore, self).__init__()
         self.step_store = self.get_empty_store()
-        self.attention_store = {}
 
 
 def find_top_k_gaussian(attention_maps, top_k, sigma = 3, epsilon = 1e-5, num_subjects = 1):
@@ -281,7 +279,7 @@ def image2latent(model, image, device):
             latents = image
         else:
             # print the max and min values of the image
-            image = torch.from_numpy(image) * 2 - 1
+            image = torch.from_numpy(image).float() * 2 - 1
             image = image.permute(0, 3, 1, 2).to(device)
             if isinstance(model.vae, torch.nn.DataParallel):
                 latents = model.vae.module.encode(image)["latent_dist"].mean

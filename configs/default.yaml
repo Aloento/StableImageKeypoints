@@ -17,7 +17,7 @@ dataset:
 training:
   device: "cuda" # 使用的设备
   lr: 0.005 # 学习率
-  num_steps: 500 # 优化步数
+  num_steps: 200 # 优化步数
   num_tokens: 500 # token数量
   batch_size: 8 # 批处理大小
 
