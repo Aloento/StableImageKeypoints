@@ -15,6 +15,7 @@ from src.invertable_transform import (
     RandomAffineWithInverse,
 )
 import wandb
+import matplotlib.pyplot as plt
 
 
 def find_max_pixel(map):
@@ -158,7 +159,7 @@ def run_image_with_context_augmented(
 ):
     # if image is a torch.tensor, convert to numpy
     if type(image) == torch.Tensor:
-        image = image.permute(1, 2, 0).detach().cpu().float().numpy()
+        image = image.permute(1, 2, 0).detach().cpu().numpy()
 
     num_samples = torch.zeros(len(indices), upscale_size, upscale_size).to(device)
     sum_samples = torch.zeros(len(indices), upscale_size, upscale_size).to(device)
@@ -170,8 +171,6 @@ def run_image_with_context_augmented(
     )
 
     if visualize:
-        import matplotlib.pyplot as plt
-
         fig, axs = plt.subplots(augmentation_iterations + 1, 8)
 
         visualize_index = 3
@@ -367,7 +366,7 @@ def evaluate(
 
         attention_maps = run_image_with_context_augmented(
             ldm,
-            img.float(),
+            img,
             context,
             indices.cpu(),
             device=config.device,

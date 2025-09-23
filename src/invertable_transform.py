@@ -54,7 +54,7 @@ class RandomAffineWithInverse:
                 theta.append(self.create_affine_matrix(
                     angle, scale_factor, translations_percent
                 ))
-            theta = torch.cat(theta, dim=0).to(img_tensor.device, img_tensor.dtype)
+            theta = torch.cat(theta, dim=0).to(img_tensor.device)
 
         # Store them for inverse transformation
         self.last_params = {
@@ -76,11 +76,11 @@ class RandomAffineWithInverse:
 
         # Augment the affine matrix to make it 3x3
         theta_augmented = torch.cat(
-            [theta, torch.Tensor([[0, 0, 1]]).expand(theta.shape[0], -1, -1).to(theta.device, theta.dtype)], dim=1
+            [theta, torch.Tensor([[0, 0, 1]]).expand(theta.shape[0], -1, -1)], dim=1
         )
 
         # Compute the inverse of the affine matrix
-        theta_inv_augmented = torch.inverse(theta_augmented.float())
+        theta_inv_augmented = torch.inverse(theta_augmented)
         theta_inv = theta_inv_augmented[:, :2, :]  # Take the 2x3 part back
 
         # Apply inverse transformation

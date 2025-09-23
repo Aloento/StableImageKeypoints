@@ -73,8 +73,6 @@ def collect_maps(
         # Reshape to spatial dimensions
         data = data.reshape(batch_size, spatial_size, spatial_size, text_len)
         
-        # import ipdb; ipdb.set_trace()
-
         if indices is not None:
             data = data[:, :, :, indices]
 
