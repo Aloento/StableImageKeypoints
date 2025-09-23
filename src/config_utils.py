@@ -32,7 +32,7 @@ class Config:
     batch_size: int = 4
     
     # Features configuration
-    feature_upsample_res: int = 512
+    feature_upsample_res: int = 128
     layers: List[int] = None
     noise_level: int = -1
     
@@ -225,10 +225,6 @@ def validate_config(config: Config) -> None:
     # SDXL特定验证
     if len(config.layers) > 3:
         raise ValueError(f"SDXL只有3个分辨率层，配置的layers包含{len(config.layers)}层")
-    
-    # 验证feature_upsample_res适合SDXL
-    if config.feature_upsample_res < 256:
-        print(f"警告: SDXL推荐feature_upsample_res>=256，当前设置为{config.feature_upsample_res}")
 
 
 def create_config_parser() -> argparse.ArgumentParser:

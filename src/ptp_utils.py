@@ -395,12 +395,14 @@ def register_attention_control(model, controller, feature_upsample_res=256):
             # 应用注意力控制
             if (
                 is_cross and 
-                sequence_length <= 32**2 and 
+                hidden_states.shape[1] <= 32**2 and 
                 len(self.controller.step_store["attn"]) < 3
             ):
                 # 检查是否为完全平方数（即来自 2D 特征图）
-                sqrt_seq_len = int(sequence_length**0.5)
-                if sqrt_seq_len * sqrt_seq_len == sequence_length:
+                hidden_seq_len = hidden_states.shape[1]
+                sqrt_seq_len = int(hidden_seq_len**0.5)
+                
+                if sqrt_seq_len * sqrt_seq_len == hidden_seq_len:
                     # 对于特征上采样处理
                     x_reshaped = hidden_states.reshape(
                         batch_size,
@@ -435,6 +437,27 @@ def register_attention_control(model, controller, feature_upsample_res=256):
                         is_cross, 
                         self.place_in_unet
                     )
+                    
+                    # 计算上采样空间的注意力输出
+                    upsampled_output = torch.matmul(attention_probs, value)
+                    
+                    # 下采样：将上采样的输出下采样回原始尺寸
+                    upsampled_output = upsampled_output.transpose(1, 2).reshape(batch_size, -1, attn.heads * head_dim)
+                    upsampled_h = upsampled_w = self.feature_upsample_res
+                    upsampled_output_reshaped = upsampled_output.reshape(
+                        batch_size, upsampled_h, upsampled_w, -1
+                    ).permute(0, 3, 1, 2)
+                    
+                    # 下采样回原始尺寸
+                    downsampled_output = F.interpolate(
+                        upsampled_output_reshaped,
+                        size=(sqrt_seq_len, sqrt_seq_len),
+                        mode="bicubic",
+                        align_corners=False,
+                    ).permute(0, 2, 3, 1).reshape(batch_size, hidden_seq_len, -1)
+                    
+                    # 重新整形为注意力格式 (B, h, Nq, d)
+                    hidden_states = downsampled_output.view(batch_size, hidden_seq_len, attn.heads, head_dim).transpose(1, 2)
                 else:
                     # 对于非完全平方数的序列长度，直接应用控制器而不进行上采样
                     attention_probs = self.controller(
@@ -442,9 +465,11 @@ def register_attention_control(model, controller, feature_upsample_res=256):
                         is_cross, 
                         self.place_in_unet
                     )
-
-            # 应用注意力到 value
-            hidden_states = torch.matmul(attention_probs, value)
+                    # 应用注意力到 value
+                    hidden_states = torch.matmul(attention_probs, value)
+            else:
+                # 应用注意力到 value（正常情况）
+                hidden_states = torch.matmul(attention_probs, value)
             
             hidden_states = hidden_states.transpose(1, 2).reshape(batch_size, -1, attn.heads * head_dim)
             hidden_states = hidden_states.to(query.dtype)

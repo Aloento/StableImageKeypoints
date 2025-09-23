@@ -23,7 +23,7 @@ training:
 
 # 特征相关配置
 features:
-  upsample_res: 256 # 注意力操作中获取的潜在特征的上采样分辨率
+  upsample_res: 128 # 注意力操作中获取的潜在特征的上采样分辨率
   layers: [0, 1, 2] # 使用的层
   noise_level: -1 # 噪声级别（0-29，0最高噪声，29最低噪声）
 
