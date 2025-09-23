@@ -396,7 +396,6 @@ def register_attention_control(model, controller, feature_upsample_res=256):
             if (
                 is_cross and 
                 sequence_length <= 32**2 and 
-                hasattr(self.controller, 'step_store') and
                 len(self.controller.step_store["attn"]) < 3
             ):
                 # 检查是否为完全平方数（即来自 2D 特征图）
@@ -431,29 +430,18 @@ def register_attention_control(model, controller, feature_upsample_res=256):
                     attn_probs_upsampled = F.softmax(attn_scores_upsampled, dim=-1)
                     
                     # 应用控制器
-                    controlled_attn = self.controller(
+                    attention_probs = self.controller(
                         {"attn": attn_probs_upsampled}, 
                         is_cross, 
                         self.place_in_unet
                     )
-                    
-                    # 如果控制器返回的是字典，提取注意力矩阵
-                    if isinstance(controlled_attn, dict):
-                        attention_probs = controlled_attn["attn"]
-                    else:
-                        attention_probs = controlled_attn
                 else:
                     # 对于非完全平方数的序列长度，直接应用控制器而不进行上采样
-                    controlled_attn = self.controller(
+                    attention_probs = self.controller(
                         {"attn": attention_probs}, 
                         is_cross, 
                         self.place_in_unet
                     )
-                    
-                    if isinstance(controlled_attn, dict):
-                        attention_probs = controlled_attn["attn"]
-                    else:
-                        attention_probs = controlled_attn
 
             # 应用注意力到 value
             hidden_states = torch.matmul(attention_probs, value)

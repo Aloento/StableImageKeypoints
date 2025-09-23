@@ -28,7 +28,7 @@ def load_ldm(device, type="stabilityai/stable-diffusion-xl-base-1.0", feature_up
         steps_offset=1
     )
 
-    NUM_DDIM_STEPS = 30
+    NUM_DDIM_STEPS = 50
     scheduler.set_timesteps(NUM_DDIM_STEPS)
 
     ldm = StableDiffusionXLPipeline.from_pretrained(
