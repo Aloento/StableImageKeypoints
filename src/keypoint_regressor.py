@@ -53,7 +53,7 @@ def find_best_indices(
     indices_list = []
 
     # create dataloader for the dataset
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=num_gpus, shuffle=True, drop_last=True)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=num_gpus, shuffle=True, drop_last=True, num_workers=num_gpus, pin_memory=True)
 
     dataloader_iter = iter(dataloader)
 
@@ -147,7 +147,7 @@ def precompute_all_keypoints(
     visibility = []
 
     # create dataloader for the dataset
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, drop_last=True)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, drop_last=True, pin_memory=True)
 
     dataloader_iter = iter(dataloader)
 

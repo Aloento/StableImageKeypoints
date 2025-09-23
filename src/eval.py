@@ -354,7 +354,7 @@ def evaluate(
     all_values = []
     
     # create dataloader for the dataset
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, drop_last=True)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, drop_last=True, pin_memory=True)
 
     dataloader_iter = iter(dataloader)
 

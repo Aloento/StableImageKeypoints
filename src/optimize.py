@@ -236,7 +236,7 @@ def optimize_embedding(
     running_total_loss = 0
     
     # create dataloader for the dataset
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=num_gpus, shuffle=True, drop_last=True)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=num_gpus, shuffle=True, drop_last=True, num_workers=num_gpus, pin_memory=True)
 
     dataloader_iter = iter(dataloader)
     
