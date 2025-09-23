@@ -31,54 +31,33 @@ class AttentionControl(abc.ABC):
     def between_steps(self):
         return
 
-    @property
-    def num_uncond_att_layers(self):
-        return 0
-
     @abc.abstractmethod
     def forward(self, dict, is_cross: bool, place_in_unet: str):
         raise NotImplementedError
 
     def __call__(self, dict, is_cross: bool, place_in_unet: str):
         attn = dict['attn']
+
+        if not is_cross:
+            return attn
         
-        # 检查是否需要应用条件/无条件分离（CFG）
-        if hasattr(self, 'cur_att_layer') and hasattr(self, 'num_uncond_att_layers'):
-            if self.cur_att_layer >= self.num_uncond_att_layers:
-                h = attn.shape[0]
-                if h > 1 and h % 2 == 0:  # 确保是偶数批次（条件+无条件）
-                    # 只对条件生成部分（后半部分）应用注意力控制
-                    dict_to_process = {'attn': attn[h // 2:]}
-                    dict_processed = self.forward(dict_to_process, is_cross, place_in_unet)
-                    # 重新组合条件和无条件部分
-                    dict['attn'] = torch.cat([attn[:h // 2], dict_processed['attn']], dim=0)
-                else:
-                    # 单批次或奇数批次，直接处理
-                    dict = self.forward(dict, is_cross, place_in_unet)
-            else:
-                dict = self.forward(dict, is_cross, place_in_unet)
-            
-            # 更新层计数器和步骤计数器
-            self.cur_att_layer += 1
-            if hasattr(self, 'num_att_layers') and self.cur_att_layer == self.num_att_layers + self.num_uncond_att_layers:
-                self.cur_att_layer = 0
-                if hasattr(self, 'cur_step'):
-                    self.cur_step += 1
-                self.between_steps()
-        else:
-            # 简单模式：直接调用forward
-            dict = self.forward(dict, is_cross, place_in_unet)
+        h = attn.shape[0]
+        if h > 1 and h % 2 == 0:  # 典型 CFG: [uncond; cond]
+            dict_cond = {'attn': attn[h // 2:]}                # 只处理后半
+            dict_cond = self.forward(dict_cond, is_cross, place_in_unet)
+            dict['attn'] = torch.cat([attn[:h // 2], dict_cond['attn']], dim=0)
+            return dict['attn']
         
+        # 非 CFG 直接处理
+        dict = self.forward(dict, is_cross, place_in_unet)
         return dict['attn']
 
     def reset(self):
         self.cur_step = 0
-        self.cur_att_layer = 0
 
     def __init__(self):
         self.cur_step = 0
         self.num_att_layers = -1
-        self.cur_att_layer = 0
 
 
 class AttentionStore(AttentionControl):
@@ -89,23 +68,10 @@ class AttentionStore(AttentionControl):
         }
 
     def forward(self, dict, is_cross: bool, place_in_unet: str):
-        if dict['attn'].shape[1] <= 32 ** 2:
-            self.step_store["attn"].append(dict['attn']) 
+        # if dict['attn'].shape[1] <= 32 ** 2:
+        self.step_store["attn"].append(dict['attn']) 
         
         return dict
-
-    def between_steps(self):
-        if len(self.attention_store) == 0:
-            self.attention_store = self.step_store
-        else:
-            for key in self.attention_store:
-                for i in range(len(self.attention_store[key])):
-                    self.attention_store[key][i] += self.step_store[key][i]
-        self.step_store = self.get_empty_store()
-
-    def get_average_attention(self):
-        average_attention = {key: [item / self.cur_step for item in self.attention_store[key]] for key in self.attention_store}
-        return average_attention
 
     def reset(self):
         super(AttentionStore, self).reset()
