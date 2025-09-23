@@ -241,7 +241,11 @@ def find_pred_noise(
     
     batch_size = noisy_image.shape[0]
     
-    add_text_embeds = torch.zeros(batch_size, 1280, device=device, dtype=noisy_image.dtype)
+    x_pooled = context.mean(dim=1)              # (B, 2048)
+    add_text_embeds = x_pooled[..., 768:]       # (B, 1280) —— 取“后半段”作为近似 pooled
+    add_text_embeds = add_text_embeds / (add_text_embeds.norm(dim=-1, keepdim=True) + 1e-6)
+    add_text_embeds = add_text_embeds.repeat(batch_size, 1)
+    add_text_embeds = add_text_embeds.to(device=device, dtype=noisy_image.dtype)
     
     # 从 latent 推断原始图像尺寸 (SDXL VAE 下采样因子是 8)
     _, _, h_latent, w_latent = noisy_image.shape
