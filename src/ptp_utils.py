@@ -239,16 +239,19 @@ def find_pred_noise(
         latent, noise, ldm.scheduler.timesteps[noise_level]
     )
     
-    # import ipdb; ipdb.set_trace()
-
-    # 创建虚拟的 text_embeds 和 time_ids
     batch_size = noisy_image.shape[0]
     
-    # 创建虚拟的 add_text_embeds (pooled embeddings)
     add_text_embeds = torch.zeros(batch_size, 1280, device=device, dtype=noisy_image.dtype)
     
-    # 创建虚拟的 add_time_ids (original_size, crops_coords_top_left, target_size)
-    add_time_ids = torch.zeros(batch_size, 6, device=device, dtype=noisy_image.dtype)
+    # 从 latent 推断原始图像尺寸 (SDXL VAE 下采样因子是 8)
+    _, _, h_latent, w_latent = noisy_image.shape
+    height = h_latent * 8
+    width = w_latent * 8
+    
+    # SDXL time_ids 格式: [original_size_h, original_size_w, crops_top, crops_left, target_size_h, target_size_w]
+    add_time_ids = torch.tensor([
+        [height, width, 0, 0, height, width]
+    ], device=device, dtype=noisy_image.dtype).repeat(batch_size, 1)
     
     added_cond_kwargs = {"text_embeds": add_text_embeds, "time_ids": add_time_ids}
 
