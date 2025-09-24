@@ -4,7 +4,7 @@
 
 ## Overview
 
-`StableXLKeypoints` builds upon `StableImageKeypoints` to fully adapt and enhance support for `Stable Diffusion XL` (SDXL), completing the parts that were unfinished in the earlier `StableKeypoints`. This project supports only SDXL and its fine-tuned models. If you’re looking for a version for Stable Diffusion v1/v2, please see [here](https://github.com/Aloento/StableImageKeypoints/tree/v1.5).
+`StableXLKeypoints` builds upon `StableImageKeypoints` to fully adapt and enhance support for `Stable Diffusion XL` (SDXL), completing the parts that were unfinished in the earlier `StableKeypoints`. This project supports only SDXL and its fine-tuned models. If you’re looking for a version for Stable Diffusion v1/v2, please see [here](https://github.com/Aloento/StableImageKeypoints/blob/v1.5/README_EN.md).
 
 ## Features & Improvements
 
@@ -28,7 +28,7 @@
 
 ## Usage
 
-Usage is identical to v1.5. Please refer to the “[Quick Start](https://github.com/Aloento/StableImageKeypoints/blob/v1.5/README.md#%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B)” section in v1.5 and follow the same steps to configure and run.
+Usage is identical to v1.5. Please refer to the “[Quick Start](https://github.com/Aloento/StableImageKeypoints/blob/v1.5/README_EN.md#quick-start)” section in v1.5 and follow the same steps to configure and run.
 
 ## Notes and Thoughts
 
