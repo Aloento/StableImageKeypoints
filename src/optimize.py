@@ -223,7 +223,7 @@ def optimize_embedding(
     context.requires_grad = True
 
     # optimize context to maximize attention at pixel_loc
-    optimizer = torch.optim.Adam([context], lr=config.lr)
+    optimizer = torch.optim.AdamW([context], lr=config.lr, weight_decay=1e-4)
 
     # time the optimization
     import time
