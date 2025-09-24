@@ -41,7 +41,7 @@ keypoints:
 # 损失函数权重
 loss:
   sharpening_weight: 100.0 # 锐化损失权重
-  equivariance_attn_weight: 10000.0 # 等变注意力损失权重
+  equivariance_attn_weight: 1000.0 # 等变注意力损失权重
 
 # 数据增强配置
 augmentation:

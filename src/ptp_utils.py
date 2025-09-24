@@ -481,13 +481,13 @@ def register_attention_control(model, controller, feature_upsample_res=256):
         else:
             place_in_unet = "unknown"
         
-        # 只替换交叉注意力处理器 (attn2)
-        if "attn2" in name:  # 交叉注意力
+        # 只替换上采样块的交叉注意力处理器 (attn2)
+        if "attn2" in name and "up_blocks" in name:
             new_attn_procs[name] = ControlledAttnProcessor2_0(
                 controller, place_in_unet, feature_upsample_res
             )
             cross_att_count += 1
-        else:  # 自注意力保持原样
+        else:  # 其他所有注意力保持原样
             new_attn_procs[name] = processor
     
     # 设置新的注意力处理器
