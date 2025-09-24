@@ -11,7 +11,7 @@
 - Adapted to `AttnProcessor 2.0` and compatible with SDXL’s attention implementation.
 - Optimized CFG and dual text-encoder pathways specifically for SDXL.
 - More stable and accurate keypoint localization with stronger semantic consistency.
-  - Thanks to SDXL’s dual CLIP text encoders, we observe significantly more stable semantic correspondences:
+  - Thanks to SDXL’s larger text embeddings, we observe significantly more stable semantic correspondences:
     In the results, index 3 consistently points to tail feathers, 8 to the beak, and 9 to the eye corner, etc. These correspondences were unstable in v1.5 but are more consistent under SDXL.
 - Keypoints tend to focus on common structures in the training data (e.g., the head).
 - Convergence speed is roughly on par with v1.5, with well-controlled VRAM usage.
@@ -30,10 +30,7 @@
 
 Usage is identical to v1.5. Please refer to the “[Quick Start](https://github.com/Aloento/StableImageKeypoints/blob/v1.5/README_EN.md#quick-start)” section in v1.5 and follow the same steps to configure and run.
 
-## Notes and Thoughts
-
-- About the tensor `add_text_embeds` passed to `CLIP ViT-G/14` (the second text encoder):
-  If you’re curious, you can try splitting it into two parts before taking the mean and then feed them separately or explore different fusion strategies. This may lead to different effects. The current implementation relies on backpropagation to learn it automatically; we do not explicitly model it. Such operations might introduce coupling effects with the first text embedding (`CLIP ViT-L/14`).
+## Notes
 
 - I do not plan to write a separate paper for this study, so there won’t be a formal derivation here. You’re welcome to experiment and build upon this work.
 
