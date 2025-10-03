@@ -275,17 +275,21 @@ def image2latent(model, image, device):
     with torch.no_grad():
         if type(image) is Image:
             image = np.array(image)
+
         if type(image) is torch.Tensor and image.dim() == 4:
             latents = image
         else:
             # print the max and min values of the image
             image = torch.from_numpy(image).float() * 2 - 1
             image = image.permute(0, 3, 1, 2).to(device)
+            
             if isinstance(model.vae, torch.nn.DataParallel):
                 latents = model.vae.module.encode(image)["latent_dist"].mean
+                latents = latents * model.vae.module.config.scaling_factor
             else:
                 latents = model.vae.encode(image)["latent_dist"].mean
-            latents = latents * 0.18215
+                latents = latents * model.vae.config.scaling_factor
+
     return latents
 
 

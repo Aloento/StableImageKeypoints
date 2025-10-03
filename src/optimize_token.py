@@ -38,11 +38,6 @@ def load_ldm(device, type="stabilityai/stable-diffusion-xl-base-1.0", feature_up
         use_safetensors=True
     ).to(device)
     
-    try:
-        ldm.enable_xformers_memory_efficient_attention()
-    except Exception as e:
-        print(f"Warning: Could not enable xFormers memory efficient attention: {e}")
-    
     if device != "cpu":
         ldm.unet = nn.DataParallel(ldm.unet)
         ldm.vae = nn.DataParallel(ldm.vae)
